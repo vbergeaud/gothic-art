@@ -257,7 +257,9 @@ def ring(Rext,Rint):
     shape_out= Point(0,0).buffer(Rext)
     shape_in = Point (0,0).buffer(Rint)
     return shape_out.difference(shape_in)
+
 if __name__== "__main__" : 
+    f=plt.figure(figsize=(30,30),dpi=100)
     circle_out = ring(58,57)
     shape_out = rosace1(16,20.0,40.0)
     shape_outer_circle = rosace2(32, 50,65,4)
@@ -266,4 +268,17 @@ if __name__== "__main__" :
     shape_int = new_rosace(7,3,5,True)
     show_shapes ([circle_out]+shape_out+[shape_mid]+[shape_mid2]+[shape_int]+shape_outer_circle)
  
-    plt.show()
+    #plt.show()
+    
+    xmin = -90
+    xmax = 90
+    ymin = -90
+    ymax = 90
+    Nx = 3
+    Ny =3
+    for i in range (Nx):
+        for j in range (Ny):
+            plt.axis([xmin+i*(xmax-xmin)/Nx,xmin+(i+1)*(xmax-xmin)/Nx,ymin+j*(ymax-ymin)/Ny, ymin+(j+1)*(ymax-ymin)/Ny ])
+           # plt.axis('equal')
+            f.savefig('c:\\temp\\figure'+str(i)+'_'+str(j)+'.png')
+    
