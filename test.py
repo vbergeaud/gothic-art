@@ -234,7 +234,7 @@ def rosace1(N, Rint, Rmid) :
     shapes_out = flatten(shapes_out)
     shapes2_out = flatten(shapes2_out)
 
-    shapes = shapes_in+shapes_out+shapes2_out+shapes2+r3
+    shapes = shapes_out+shapes2_out+shapes2+r3+shapes_in
  
     return shapes
 
@@ -322,15 +322,19 @@ def eight_surrounding_circles(Rext,Nfoil):
     
     
 if __name__== "__main__" : 
-    circle_out = ring(58,57)
-    shape_out = rosace1(16,20.0,40.0)
-    shape_outer_circle = rosace2(32, 50,65,4)
-    shape_mid = lined_ring(19,15,0.2,10,3)
-    shape_mid2 = ring (14,12)
-    shape_int = new_rosace(7,3,5,inner_circle_reduction_factor=0.6,surrounded=True)
-    circles = four_surrounding_circles(78,0.5,5,3)
-    small_circles = eight_surrounding_circles(78, 4)
-    frame = rectangle(2*78, 2*78)
+    dims = [10,15,20,40,50,58,65,78]
+    dims = [7,10,15,42,52,60,65,78]
+    
+    Router_ring = dims [5]
+    circle_out = ring(Router_ring,Router_ring-1)
+    shape_out = rosace1(16,dims[2],dims[3])
+    shape_outer_circle = rosace2(32, dims[4],dims[6],4)
+    shape_mid = lined_ring(dims[2]-1,dims[1],0.2,10,3)
+    shape_mid2 = ring (dims[0]+(dims[1]-dims[0])*0.8,dims[0]+(dims[1]-dims[0])*0.2)
+    shape_int = new_rosace(0.7*dims[0],0.3*dims[0],5,inner_circle_reduction_factor=0.6,surrounded=True)
+    circles = four_surrounding_circles(dims[7],0.5,5,3)
+    small_circles = eight_surrounding_circles(dims[7], 4)
+    frame = rectangle(2*dims[7], 2*dims[7])
     show_shapes ([frame]+[circle_out]+shape_out+shape_mid+[shape_mid2]+[shape_int]+shape_outer_circle+circles+small_circles)
  
     plt.show()
