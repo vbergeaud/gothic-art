@@ -5,8 +5,9 @@ Created on Sun Aug  2 17:14:04 2020
 @author: VB144235
 """
 import math
-from shapely.geometry import Point,Polygon
+from shapely.geometry import Point,Polygon,LineString
 from shapely.affinity import affine_transform,rotate,translate
+from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 import copy
 
@@ -16,18 +17,12 @@ def rectangle(w,h):
 
 def circle(P,R):
     return P.buffer(R)
+
 def translate(shape,dx,dy):
     mat=[1,0,0,1,dx,dy]
     return affine_transform(shape,mat)
 
 def broken_arc(w,h,ch,t):
-#        (1-ca)r=w/2
-#        h=sa*r
-#        ca= (1-t*t)/(1+t*t)
-#        sa=2t/(2+t*t)
-#        2t*t/(1+t*t)h/2t*(1+t*t)=w/2
-#        th=w/2
-#        t=w/h/2
     alpha=2*math.atan(w/h*0.5)
     r=h/math.sin(alpha)
     c1=Point(w/2-r,0).buffer(r)
@@ -40,6 +35,12 @@ def broken_arc(w,h,ch,t):
     arc=arc.exterior.buffer(t)
     return arc
 
+""" 
+shape : shape to be rotated
+n : number of copies (including original shape)
+copies the shape and rotates by i/k*2*pi radians
+returns list of shapes
+"""
 def multi_rotate(shape,n):
     u=[shape]
     for i in range(n-1):
@@ -48,6 +49,13 @@ def multi_rotate(shape,n):
         u.append(shape)
     return u
     
+"""
+coffin shape 
+Rint : inner radius
+Rmid : radius of the outer part of the coffin body
+alpha : angle of the body in degrees 
+"""
+
 def new_coffin(Rint, Rmid, alpha):
     alpha_rad = alpha/180.0*math.pi
     cosa2 = math.cos(alpha_rad*.5)
@@ -107,8 +115,15 @@ def rosace (r,n):
         shape = shape.union(circle_bis)
     return shape
 
-def new_rosace(Rint,Rext,N,surrounded=False):
-    circle = Point(0,0).buffer(Rint)
+"""
+Rint : radius of the centers of the outer circles
+Rext : radius of the outer circles (total radius will be Rint+Rext)
+N : number of outer circles
+inner_circle_reduction_factor : multiplication factor for the radius of the inner circle (applied to Rint)
+surrounded : creates an outer circle if True
+"""
+def new_rosace(Rint,Rext,N,inner_circle_reduction_factor = 0.7, surrounded=False):
+    circle = Point(0,0).buffer(Rint*inner_circle_reduction_factor)
     shape= circle
     for i in range(N):
         cosa = math.cos(i*2*math.pi/N)
@@ -219,7 +234,7 @@ def rosace1(N, Rint, Rmid) :
     shapes_out = flatten(shapes_out)
     shapes2_out = flatten(shapes2_out)
 
-    shapes = shapes_in+shapes_out+shapes2_out+shapes2+r3
+    shapes = shapes_out+shapes2_out+shapes2+r3+shapes_in
  
     return shapes
 
@@ -258,15 +273,70 @@ def ring(Rext,Rint):
     shape_in = Point (0,0).buffer(Rint)
     return shape_out.difference(shape_in)
 
+def lined_ring(Rext,Rint,thickness,nwaves,ntwinned,surrounded=False):
+    from math import cos,sin
+    points=[]
+    Rmid = 0.5*(Rext+Rint)
+    delta = (Rext-Rint-2*thickness)*0.45
+    for i in range (360):
+        theta = i/360*2*math.pi
+        R = Rmid + cos (nwaves*theta)* delta
+        points.append((R*cos(theta),R*sin(theta)))
+    line = LineString(points)
+    line = line.buffer(thickness)
+    lines = multi_rotate(line, ntwinned)
+
+    if surrounded:
+        shapeout= ring(Rext,Rext-thickness)
+        lines.append(shapeout)
+#
+    return lines
+
+def four_surrounding_circles(Rext,thickness,nwaves,ntwinned):
+    from math import sqrt
+    alpha = (3-2*sqrt(2))
+    beta= (1+alpha)*sqrt(2)/2
+    circle = lined_ring(alpha*Rext, alpha*Rext*0.3, thickness, nwaves, ntwinned,surrounded=True)
+    circle = unary_union(circle)
+    shapes=[]
+    shapes.append(translate(circle,Rext*beta,Rext*beta))
+    shapes.append(translate(circle,Rext*beta,-Rext*beta))
+    shapes.append(translate(circle,-Rext*beta,-Rext*beta))
+    shapes.append(translate(circle,-Rext*beta,Rext*beta))
+    return shapes
+
+def eight_surrounding_circles(Rext,Nfoil):
+    alpha = 1.6/19*Rext
+    beta = 11.2/19*Rext
+    rosace = new_rosace(alpha*0.6, alpha*0.4, Nfoil,surrounded=True)
+    shapes=[]
+    shapes.append(translate(rosace, beta, (Rext-alpha*1.1)))
+    shapes.append(translate(rosace,  (Rext-alpha*1.1), beta))
+    shapes.append(translate(rosace, -beta, (Rext-alpha*1.1)))
+    shapes.append(translate(rosace,  -(Rext-alpha*1.1), beta))
+    shapes.append(translate(rosace, -beta, -(Rext-alpha*1.1)))
+    shapes.append(translate(rosace,  -(Rext-alpha*1.1), -beta))
+    shapes.append(translate(rosace, beta, -(Rext-alpha*1.1)))
+    shapes.append(translate(rosace,  (Rext-alpha*1.1), -beta))
+    return shapes
+    
+    
 if __name__== "__main__" : 
     f=plt.figure(figsize=(30,30),dpi=100)
-    circle_out = ring(58,57)
-    shape_out = rosace1(16,20.0,40.0)
-    shape_outer_circle = rosace2(32, 50,65,4)
-    shape_mid = ring(19,15)
-    shape_mid2 = ring (14,12)
-    shape_int = new_rosace(7,3,5,True)
-    show_shapes ([circle_out]+shape_out+[shape_mid]+[shape_mid2]+[shape_int]+shape_outer_circle)
+    dims = [10,15,20,40,50,58,65,78]
+    dims = [7,10,15,42,52,60,65,78]
+    
+    Router_ring = dims [5]
+    circle_out = ring(Router_ring,Router_ring-1)
+    shape_out = rosace1(16,dims[2],dims[3])
+    shape_outer_circle = rosace2(32, dims[4],dims[6],4)
+    shape_mid = lined_ring(dims[2]-1,dims[1],0.2,10,3)
+    shape_mid2 = ring (dims[0]+(dims[1]-dims[0])*0.8,dims[0]+(dims[1]-dims[0])*0.2)
+    shape_int = new_rosace(0.7*dims[0],0.3*dims[0],5,inner_circle_reduction_factor=0.6,surrounded=True)
+    circles = four_surrounding_circles(dims[7],0.5,5,3)
+    small_circles = eight_surrounding_circles(dims[7], 4)
+    frame = rectangle(2*dims[7], 2*dims[7])
+    show_shapes ([frame]+[circle_out]+shape_out+shape_mid+[shape_mid2]+[shape_int]+shape_outer_circle+circles+small_circles)
  
     #plt.show()
     
